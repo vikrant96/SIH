@@ -26,7 +26,6 @@ class GenGrid:
     def _draw_rect_on_map(self, x, y, w, h, color, alpha):
         x = x - w/2;
         y = y - h/2;
-        print("{},{}".format(x,y))
         overlay = self.map_image.copy()
         output = self.map_image.copy()
         cv2.rectangle(overlay, (int(x * self.width_ratio), int(y * self.height_ratio)),
@@ -35,7 +34,6 @@ class GenGrid:
         self.map_image = output
 
     def render_grid(self, path, grid_list, w, h):
-        #print(grid_list)
         self._set_map_image(path)
         (height, width, channel) = self.map_image.shape
         self.width_ratio = width / float(self.map_width)

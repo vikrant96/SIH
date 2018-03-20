@@ -48,12 +48,32 @@ def getGridDistribution(gridPoints, timeOfFlight, timeToClick, velocity, serverL
     tof = 0.9 * timeOfFlight;
     serverRange = 0.9 * serverRange;
     distribution = {};
+    startPositions = [];
     drones = 0;
     while(len(gridPoints) != 0):
         gridPointsCpy = copy.deepcopy(gridPoints);
         drones+=1;
         startPos = gridPointsCpy[0];
-        distance = math.sqrt((startPos[1] - serverLoc[1])**2 + (startPos[0] - serverLoc[0])**2);
+
+        #set start location for first drone
+        if(drones == 1):
+            for loc in gridPointsCpy:
+                if(math.sqrt((loc[1] - serverLoc[1])**2 + (loc[0] - serverLoc[0])**2) < serverRange):
+                    startPos = loc;
+                    startPositions.append(startPos);
+                    break;
+
+        #set start location for rest of the drones
+        if(drones > 1):
+            lastDronePos = startPositions[-1];
+            for loc in gridPointsCpy:
+                if(math.sqrt((loc[1] - lastDronePos[1])**2 + (loc[0] - lastDronePos[0])**2) < serverRange):
+                    startPos = loc;
+                    startPositions.append(startPos);
+                    break;
+
+        #get distance and time for travel
+        distance = math.sqrt((startPos[1] - serverLoc[1])**2 + (startPos[0] - serverLoc[0])**2)
         timeToTravel = distance / velocity;
         timeToMap = tof - 2*timeToTravel;
         if(timeToMap < 0):
