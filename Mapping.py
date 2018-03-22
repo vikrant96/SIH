@@ -1,6 +1,7 @@
 import math;
 import copy;
 from Render import *
+from DroneScript import *
 
 class XYCoordinate:
     x = 0;
@@ -38,7 +39,10 @@ def getGridPoints(coordinates,overlap,imgWidth,imgHeight):
         for j in range(0,n1):
             x = coordinates[0][0] + imgWidth/2 + j*(imgWidth - d1);
             y = coordinates[0][1] + imgHeight/2 + i*(imgHeight - d2);
-            gridPoints.append([x,y]);
+            gridPoints.append([(j, i), (x, y)]);
+
+    #arrange grid items
+    #gridPoints = arrangeGrid(gridPoints,n1,n2);
 
     return gridPoints;
 
@@ -53,11 +57,11 @@ def getGridDistribution(gridPoints, timeOfFlight, timeToClick, velocity, serverL
     while(len(gridPoints) != 0):
         gridPointsCpy = copy.deepcopy(gridPoints);
         drones+=1;
-        startPos = gridPointsCpy[0];
+        startPos = gridPointsCpy[0][1];
 
         #set start location for first drone
         if(drones == 1):
-            for loc in gridPointsCpy:
+            for indices, loc  in gridPointsCpy:
                 if(math.sqrt((loc[1] - serverLoc[1])**2 + (loc[0] - serverLoc[0])**2) < serverRange):
                     startPos = loc;
                     startPositions.append(startPos);
@@ -66,7 +70,7 @@ def getGridDistribution(gridPoints, timeOfFlight, timeToClick, velocity, serverL
         #set start location for rest of the drones
         if(drones > 1):
             lastDronePos = startPositions[-1];
-            for loc in gridPointsCpy:
+            for indices, loc in gridPointsCpy:
                 if(math.sqrt((loc[1] - lastDronePos[1])**2 + (loc[0] - lastDronePos[0])**2) < serverRange):
                     startPos = loc;
                     startPositions.append(startPos);
@@ -82,40 +86,99 @@ def getGridDistribution(gridPoints, timeOfFlight, timeToClick, velocity, serverL
         distribution[drones] = [];
 
         for i in range(0,len(gridPointsCpy)):
-            loc = gridPointsCpy[i];
+            listobj = gridPointsCpy[i];
+            indices,loc = listobj;
             if(math.sqrt((loc[1] - serverLoc[1])**2 + (loc[0] - serverLoc[0])**2) < serverRange and drones == 1 and timeToMap > 2):
-                distribution[drones].append(loc);
+                distribution[drones].append([indices,loc]);
                 timeToMap -= timeToClick;
-                gridPoints.remove(loc);
+                gridPoints.remove(listobj);
             elif(drones!=1):
-                for loc_ in distribution[drones-1]:
+                for indices_,loc_ in distribution[drones-1]:
                     if(math.sqrt((loc[1] - loc_[1])**2 + (loc[0] - loc_[0])**2) < serverRange and timeToMap > 2):
-                        distribution[drones].append(loc);
+                        distribution[drones].append([indices,loc]);
                         timeToMap -= timeToClick;
-                        gridPoints.remove(loc);
+                        gridPoints.remove(listobj);
                         break;
 
         #print time left for drone one
         print("Drone {}: \nStart Pos: {} \ndistance: {} \nTime taken: {}".format(drones,startPos,distance,tof - timeToMap));
 
     print(distribution);
-    return distribution;
+    return drones,distribution;
 
+def arrangeGrid(dist):
+    arrangedGrid = {}
+
+    #print("Transpose: {}".format(transpose));
+    #print("Alternate grid: {}".format(arrangedGrid));
+
+    for k,v in dist.items():
+        locations = v;
+        transposeIndividual = {};
+        alternateGrid = [];
+        start = locations[0][0];
+
+        #get columns
+        for listObj in locations:
+            indices,loc = listObj;
+            transposeIndividual.setdefault(indices[0], []).append(listObj);
+
+        #get alternate
+        alternateGrid = alternate(transposeIndividual);
+
+        #print(alternateGrid);
+
+        arrangedGrid[k] = alternateGrid;
+
+    return arrangedGrid;
+
+def alternate(transpose):
+    alternateGrid = [];
+    i = 0;
+    for k,v in transpose.items():
+        if(i%2 == 0):
+            for listObj in v:
+                alternateGrid.append(listObj);
+            i+=1;
+        else:
+            for item in v[::-1]:
+                alternateGrid.append(item);
+            i+=1;
+
+    return alternateGrid;
 
 def main():
+    #parameters
     coordinates = [[0,0],[0,100],[100,100],[100,0]];
+    overlap = 2.5;
+    imgWidth = 10;
+    imgHeight = 10;
+    timeOfFlight = 200;
+    serverLoc = (50,0);
+    timeToClick = 2;
+    velocity = 15;
+    range = 30;
+    gridDimension = (100,100);
 
     #print grid array
-    gridPoints = getGridPoints(coordinates,2.5,10,10);
+    gridPoints = getGridPoints(coordinates,overlap,imgWidth,imgHeight);
     print(gridPoints);
 
     #get distribution
-    distribution = getGridDistribution(gridPoints,200,2,15,[50,0],30);
+    drones, distribution = getGridDistribution(gridPoints,timeOfFlight,timeToClick,velocity,serverLoc,range);
+
+    #get arranged grid per drone
+    arrangedDist = arrangeGrid(distribution);
+    print(arrangedDist);
 
     #generate grid
-    grid = GenGrid(100, 100);
-    grid.set_distribution(distribution);
-    grid.initRender(10,10);
+    # grid = GenGrid(gridDimension[0],gridDimension[1]);
+    # grid.set_distribution(distribution);
+    # grid.initRectRender(imgWidth,imgHeight);
+
+    #Simulation init
+
+    Ds = DroneSystem(arrangedDist,drones,velocity,timeToClick,serverLoc,gridDimension);
 
 
 if __name__== "__main__":

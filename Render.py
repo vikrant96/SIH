@@ -42,12 +42,30 @@ class GenGrid:
             self._draw_rect_on_map(x, y, w, h, color, factor_of_completion)
         self._show_map()
 
+    def render_point(self, path, point, color):
+        """
+        point_list is List of list, containg x,y, color where color is in the form (0,0,0)
+        """
+        if self.map_image is None:
+            self._set_map_image(path)
+            (height, width, channel) = self.map_image.shape
+            self.width_ratio = width / float(self.map_width)
+            self.height_ratio = height / float(self.map_height)
+        # for point_x, point_y, color in point_list:
+        #     cv2.circle(self.map_image, (int(point_x * self.width_ratio), int(point_y * self.height_ratio)), 3, color, 3)
+        point_x = point[0]
+        point_y = point[1]
+        cv2.circle(self.map_image, (int(point_x * self.width_ratio), int(point_y * self.height_ratio)), 3, color, 3)
+        #self._show_map()
+
     def set_distribution(self,distribution):
         for k,v in distribution.items():
             color = self.colors[k-1]
-            for loc_ in v:
+            for index,loc_ in v:
                 self.grid_list.append([loc_[0],loc_[1],color,0.5])
 
-    def initRender(self,w,h):
+    def initRectRender(self,w,h):
         self.render_grid("./img.png", self.grid_list, w, h)
 
+    def initCircleRender(self,point,color):
+        self.render_point("./img.png",point,color)
