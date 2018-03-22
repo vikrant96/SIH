@@ -26,7 +26,7 @@ class DroneSystem:
         self.initialize()
 
     def initialize(self):
-        #self.startTime = time.time()
+        self.startTime = time.time()
 
         #start drones for mapping
         for i in range(0, self.numberOfDrones):
