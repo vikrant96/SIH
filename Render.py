@@ -20,6 +20,8 @@ class GenGrid:
         self.map_image = cv2.imread(self.path)
 
     def show(self):
+        if isinstance(self.output, type(None)):
+            return
         cv2.waitKey(1)
         cv2.imshow("map", self.output)
         self.output = None
@@ -52,5 +54,7 @@ class GenGrid:
         (height, width, channel) = self.map_image.shape
         self.width_ratio = width / float(self.map_width)
         self.height_ratio = height / float(self.map_height)
+        if isinstance(self.output, type(None)):
+            self.output = self.map_image.copy()
         for point_x, point_y, color in point_list:
-            cv2.circle(self.map_image, (int(point_x * self.width_ratio), int(point_y * self.height_ratio)), 3, color, 3)
+            cv2.circle(self.output, (int(point_x * self.width_ratio), int(point_y * self.height_ratio)), 3, color, 3)

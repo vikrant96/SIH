@@ -5,8 +5,7 @@ from Render import *
 import cv2
 
 class Simulator:
-    def __init__(self, coordinates, drone_list, velocity, toc, server, grid, grid_pts, w, h):
-        self.coordinates = coordinates
+    def __init__(self, drone_list, velocity, toc, server, grid, grid_pts, w, h):
         self.drone_list = drone_list
         self.timeToClick = toc
         self.velocity = velocity
@@ -29,11 +28,14 @@ class Simulator:
         for drone in self.drone_list:
             drone.renderer = self.render_object
             drone.update_grid = self.update_grid
+        f = True
         while True:
-            print("next")
-            dt = time.time() - t1;
+            dt = time.time() - t1
             t1 = time.time()
-            self.render_object.render_grid(self.grid_pts, self.width, self.height)
+            # print(dt)
+            if f:
+                self.render_object.render_grid(self.grid_pts, self.width, self.height)
+                f = False
             for drone in self.drone_list:
                 drone.update(dt)
             self.render_object.show()

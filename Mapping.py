@@ -53,7 +53,7 @@ def getGridPoints(coordinates, overlap, imgWidth, imgHeight):
     return grid_points
 
 
-def get_grid_distribution(gridPoints, timeOfFlight, timeToClick, velocity, serverLoc, serverRange, colors):
+def get_grid_distribution_with_range(gridPoints, timeOfFlight, timeToClick, velocity, serverLoc, serverRange, colors):
     # get new range and tof based on buffer %
     # considering buffer of 10%
     tof = 0.9 * timeOfFlight
@@ -63,7 +63,6 @@ def get_grid_distribution(gridPoints, timeOfFlight, timeToClick, velocity, serve
     startPositions = []
     droneList = []
     drones = 0
-    grid_pts = copy.copy(gridPoints)
 
     while allocated != len(gridPoints):
         drones+=1
@@ -81,13 +80,13 @@ def get_grid_distribution(gridPoints, timeOfFlight, timeToClick, velocity, serve
         if(drones > 1):
             lastDronePos = startPositions[-1]
             for grid_pt in gridPoints:
-                if(math.sqrt((grid_pt.coordinate[1] - lastDronePos[1])**2 + (grid_pt.coordinate[0] - lastDronePos[0])**2) < serverRange):
+                if get_distance(lastDronePos, grid_pt.coordinate) < serverRange:
                     startPos = grid_pt.coordinate
                     startPositions.append(startPos)
                     break
 
         # get distance and time for travel
-        distance = math.sqrt((startPos[1] - serverLoc[1])**2 + (startPos[0] - serverLoc[0])**2)
+        distance = get_distance(startPos, serverLoc)
         timeToTravel = distance / velocity
         timeToMap = tof - 2*timeToTravel
         if(timeToMap < 0):
@@ -95,86 +94,96 @@ def get_grid_distribution(gridPoints, timeOfFlight, timeToClick, velocity, serve
             break
 
         # list of locations
-        distribution[drones] = [[(-1, -1), serverLoc]]
+        distribution[drones] = []
+
+        # setting distance from server
+        for grid_pt in gridPoints:
+            grid_pt.set_distance_from_server(serverLoc)
 
         for grid_pt in gridPoints:
             if grid_pt.allocated:
                 continue
-            if math.sqrt((grid_pt.coordinate[1] - serverLoc[1])**2 + (grid_pt.coordinate[0] - serverLoc[0])**2) < serverRange and drones == 1 and timeToMap > 2:
-                distribution[drones].append([grid_pt.index, grid_pt.coordinate])
+            if grid_pt.distance_from_server < serverRange and drones == 1 and timeToMap > 2:
+                distribution[drones].append(grid_pt)
                 grid_pt.color = colors[drones-1]
                 timeToMap -= timeToClick
                 grid_pt.allocated = True
                 allocated += 1
             elif drones != 1:
                 for j in range(0,len(distribution[drones-1])):
-                    print("dist {} ".format(distribution[drones-1][j]))
-                    indices_, loc_ = distribution[drones-1][j]
-                    if(math.sqrt((grid_pt.coordinate[1] - loc_[1])**2 + (grid_pt.coordinate[0] - loc_[0])**2) < serverRange and timeToMap > 2):
-                        distribution[drones].append([grid_pt.index, grid_pt.coordinate])
+                    dist_obj = distribution[drones-1][j]
+                    loc_ = dist_obj.coordinate
+                    if math.sqrt((grid_pt.coordinate[1] - loc_[1])**2 + (grid_pt.coordinate[0] - loc_[0])**2) < serverRange and timeToMap > 2:
+                        distribution[drones].append(grid_pt)
                         grid_pt.color = colors[drones-1]
                         timeToMap -= timeToClick
                         grid_pt.allocated = True
                         allocated += 1
-                        print(len(gridPoints))
                         break
 
-        drone = Drone(drones, colors[drones-1], None, startPos)
+        # create drones
+        drone = Drone(drones, colors[drones-1], velocity, serverLoc)
         droneList.append(drone)
 
         # print time left for drone one
         print("Drone {}: \nStart Pos: {} \ndistance: {} \nTime taken: {}".format(drones,startPos,distance,tof - timeToMap))
 
-    print(grid_pts)
+    print(gridPoints)
     print(distribution)
-    return droneList, distribution, grid_pts
+    return droneList, distribution, gridPoints
 
-def arrangeGrid(dist):
-    arrangedGrid = {}
 
-    # print("Transpose: {}".format(transpose))
-    # print("Alternate grid: {}".format(arrangedGrid))
+def shuffle_distribution(drone_list, grid_dimension, w, h):
 
-    for k,v in dist.items():
-        locations = v
-        transposeIndividual = {}
-        alternateGrid = []
-        start = locations[0][0]
+    shuffle_renderer = GenGrid(grid_dimension[0], grid_dimension[1])
+    n_drones = len(drone_list)
+    for j in range(0, 5):
+        for i, drone in enumerate(drone_list):
+            time_prev = drone_list[i-1].estimated_time if i-1 >= 0 else float('-inf')
+            time_next = drone_list[i+1].estimated_time if i+1 < n_drones else float('-inf')
+            if drone.estimated_time < time_prev or drone.estimated_time < time_next:
+                if time_prev > time_next:
+                    prev_locs = drone_list[i-1].sorted_locations
+                    num_extra_blocks = int((time_prev - drone.estimated_time) / drone_list[i-1].avg_time)
+                    if int(num_extra_blocks / 2) == 0:
+                        continue
+                    take = prev_locs[-int(num_extra_blocks / 2): ]
+                    print("Drone{0}/{5} taking {1}/{4} from Drone{2} at iter {3}".format(i, len(take), i-1, j,
+                            len(drone_list[i - 1].sorted_locations), len(drone.sorted_locations)))
+                    drone_list[i-1].set_locations(prev_locs[:-int(num_extra_blocks / 2)])
+                    curr_drone_locations = drone.sorted_locations
+                    curr_drone_locations += take
+                    drone.set_locations(curr_drone_locations)
+                else:
+                    next_locs = drone_list[i + 1].sorted_locations
+                    num_extra_blocks = int((time_next - drone.estimated_time) // drone_list[i + 1].avg_time)
+                    if int(num_extra_blocks / 2) == 0:
+                        continue
+                    take = next_locs[:int(num_extra_blocks / 2)]
+                    print("Drone{0}/{5} taking {1}/{4} from Drone{2} at iter {3}".format(i, len(take), i + 1, j,
+                            len(drone_list[i + 1].sorted_locations), len(drone.sorted_locations)))
+                    drone_list[i + 1].set_locations(next_locs[int(num_extra_blocks / 2):])
+                    curr_drone_locations = drone.sorted_locations
+                    curr_drone_locations += take
+                    drone.set_locations(curr_drone_locations)
+        pr = ""
+        for drone in drone_list:
+            pr += " " + str(len(drone.sorted_locations))
+        print(pr)
+        grid_pts = []
+        for drone in drone_list:
+            grid_pts += drone.locations
 
-        # get columns
-        for listObj in locations:
-            indices,loc = listObj
-            transposeIndividual.setdefault(indices[0], []).append(listObj)
-
-        # get alternate
-        alternateGrid = alternate(transposeIndividual)
-
-        # print(alternateGrid)
-
-        arrangedGrid[k] = alternateGrid
-
-    return arrangedGrid
-
-def alternate(transpose):
-    alternateGrid = []
-    i = 0
-    for k,v in transpose.items():
-        if(i%2 == 0):
-            for listObj in v:
-                alternateGrid.append(listObj)
-            i+=1
-        else:
-            for item in v[::-1]:
-                alternateGrid.append(item)
-            i+=1
-
-    return alternateGrid
+        # render grid
+        shuffle_renderer.render_grid(grid_pts, w, h)
+        shuffle_renderer.show()
+    # i = input()
 
 def add_transparency(self, distribution):
     for k, v in distribution.items():
         color = self.colors[k-1]
         for index, loc_ in v:
-            self.grid_list.append([loc_[0],loc_[1],color,0.2])
+            self.grid_list.append([loc_[0], loc_[1], color, 0.2])
 
 
 def main():
@@ -184,9 +193,9 @@ def main():
     imgWidth = 10
     imgHeight = 10
     timeOfFlight = 200
-    serverLoc = (0,0)
+    serverLoc = (50,0)
     timeToClick = 2
-    velocity = 15
+    velocity = 10
     range_ = 30
     gridDimension = (100,100)
     colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (102, 0, 102), (255, 0, 255), (215, 220, 55), (205, 100, 155), (155, 200, 255)]
@@ -196,27 +205,21 @@ def main():
     print(gridPoints)
 
     # get distribution
-    drone_list, distribution, gridPoints = get_grid_distribution(gridPoints, timeOfFlight, timeToClick, velocity, serverLoc, range_, colors)
+    drone_list, distribution, gridPoints = get_grid_distribution_with_range(gridPoints, timeOfFlight, timeToClick, velocity, serverLoc, range_, colors)
     print(distribution)
-    # get arranged grid per drone
-    arrangedDist = arrangeGrid(distribution)
 
-    for k in arrangedDist.keys():
-        arrangedDist[k].insert(0, [(-1, -1), serverLoc])
-        arrangedDist[k].append([(-1, -1), serverLoc])
+    # set locations for each drone
+    for i, drone in enumerate(drone_list):
+        drone.set_locations(distribution[i+1])
 
-    for k,v in arrangedDist.items():
-        drone_list[k-1].locations = v
+    # shuffle distribution for same time
+    shuffle_distribution(drone_list, gridDimension, imgWidth, imgHeight)
 
-    # generate grid
-    # grid = GenGrid(gridDimension[0],gridDimension[1])
-    # grid.set_distribution(distribution)
-    # grid.initRectRender(imgWidth,imgHeight)
+    # Print est time for drones
+    for drone in drone_list:
+        print("Drone{0}, ETA,to,back: {1}".format(drone.id, drone.get_estimated_time()))
 
-    # Simulation init
-
-    # Ds = DroneSystem(arrangedDist,drones,velocity,timeToClick,serverLoc,gridDimension)
-    sim = Simulator(arrangedDist, drone_list, velocity, timeToClick, serverLoc, gridDimension, gridPoints, imgWidth, imgHeight)
+    sim = Simulator(drone_list, velocity, timeToClick, serverLoc, gridDimension, gridPoints, imgWidth, imgHeight)
     sim.sim_loop()
 
 
