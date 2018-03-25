@@ -15,11 +15,14 @@ class Drone:
         self.start = True
         self.update_grid = None
         self.curr_loc = None
+
         self.estimated_time = None
         self.travel_towards = None
         self.travel_back = None
         self.avg_time = None
         self.click_timer = None
+
+        self.ttime = 0
 
     def set_locations(self, locations):
         for loc in locations:
@@ -40,7 +43,8 @@ class Drone:
         for i, grid_pt in enumerate(self.locations):
             dist = get_distance(grid_pt.coordinate, last_loc)
             time_ += dist / self.velocity
-            time_ += 2 # time to click TODO
+            grid_pt.estimated_time = time_
+            time_ += 2 if i != 0 else 0 # time to click TODO
             last_loc = grid_pt.coordinate
 
         avg_time = (time_ - travel_back - travel_towards - 2) / (len(self.locations) - 3)
@@ -83,6 +87,8 @@ class Drone:
         return alternateGrid
 
     def update(self, dt):
+        self.ttime += dt
+
         if self.start:
             self.curr_loc = self.locations[0].coordinate
             self.locations.pop(0)
@@ -114,11 +120,14 @@ class Drone:
         unit_v_x = (next_loc[0] - self.curr_loc[0]) / mag
 
         i_loc = (self.curr_loc[0] + (dist * unit_v_x), self.curr_loc[1] + (dist * unit_v_y))
-        if get_distance(i_loc, self.curr_loc) > get_distance(next_loc, self.curr_loc):
+        if get_distance(i_loc, self.curr_loc) > get_distance(next_loc, self.curr_loc): # case when drone reached a loc
+            print("Drone {0} Missed grid point by duration {1}".format(self.id,
+                                                                       self.locations[0].estimated_time - self.ttime))
             render_loc = next_loc
             self.click_timer = 0
             self.update_grid(index)
             self.locations.pop(0)
+
             # print("popping: {}, list length: {}".format(self.locations.pop(0),len(self.locations)))
         else:
             render_loc = i_loc

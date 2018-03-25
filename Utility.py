@@ -12,6 +12,8 @@ class GridPoint:
         self.foc = factor_of_completion
         self.allocated = allocated
         self.distance_from_server = None
+        self.completed = False
+        self.estimated_time = None
 
     def __str__(self):
         return "{0},{1},{2},{3},{4}".format(self.index, self.coordinate, self.color, self.foc, self.allocated)
