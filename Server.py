@@ -239,37 +239,29 @@ class Simulator:
                 vec = (vec[0] / mag, vec[1] / mag)
                 relay_points.append((relay_points[i][0] + vec[0] * drange, relay_points[i][1] + vec[1] * drange))
 
-            # scaling of the relay points
-            last_x = relay_points[-1][0]
-            last_y = relay_points[-1][1]
+        # scaling of the relay points
+        last_x = max(relay_points, key= lambda x: x[0])[0]
+        last_y = max(relay_points, key= lambda x: x[1])[1]
 
-            scale_x = last_x / self.gridDimension[0]
-            scale_y = last_y / self.gridDimension[1]
+        scale_x = 1
+        scale_y = 1
 
+        if last_x < 0 or last_x > self.gridDimension[0]:
+            if last_x < self.server_loc[0]:
+                scale_x = abs(0 - self.server_loc[0]) / abs(last_x - self.server_loc[0])
+            else:
+                scale_x = abs(self.gridDimension[0] - self.width / 2 - self.server_loc[0]) / abs(last_x - self.server_loc[0])
 
-        # # line
-        # a, b = best_fit([self.server_loc[0], ] * len(grid_locations) + [pt.coordinate[0] for pt in grid_locations],
-        #                 [self.server_loc[1], ] * len(grid_locations) + [pt.coordinate[1] for pt in grid_locations])
-        #
-        # # get cuts on the line at a distance of range
-        # pt2 = (grid_locations[0].coordinate[0], a + b * grid_locations[0].coordinate[0])
-        # vec = (pt2[0] - self.server_loc[0], pt2[1] - self.server_loc[1])
-        # mag = math.sqrt(vec[0] ** 2 + vec[1] ** 2)
-        # vec = (vec[0] / mag, vec[1] / mag)
-        #
-        # # get scaling factor for relays
-        # last_y_pt = self.server_loc[1] + vec[1] * (len(grid_locations)) * drange
-        # last_x_pt = self.server_loc[0] + vec[0] * (len(grid_locations)) * drange
-        # scale_factor_y = self.gridDimension[1] / last_y_pt
-        #
-        # scale_factor_x = (self.gridDimension[0] - abs(self.server_loc[0])) / abs(last_x_pt - self.server_loc[0])
-        # print(scale_factor_x)
-        #
-        # # generate relay points
-        # relay_points = []
-        # for i in range(len(grid_locations)):
-        #     relay_points.append((self.server_loc[0] + vec[0] * (i + 1) * drange * scale_factor_x * scale_factor_y,
-        #                          self.server_loc[1] + vec[1] * (i + 1) * drange * scale_factor_x * scale_factor_y))
+        if last_y < 0 or last_y > self.gridDimension[1]:
+            if last_y < self.server_loc[1]:
+                scale_y = abs(0 - self.server_loc[1]) / abs(last_y - self.server_loc[1])
+            else:
+                scale_y = abs(self.gridDimension[1] - self.height / 2 - self.server_loc[1]) / abs(last_y - self.server_loc[1])
+
+        for j, relay_pt in enumerate(relay_points):
+            x = relay_pt[0] * scale_x
+            y = relay_pt[1] * scale_y
+            relay_points[j] = (x, y)
 
         return grid_locations, relay_points
 
@@ -290,7 +282,7 @@ class Simulator:
             #print(ttime)
             if f:
                 self.render_object.render_grid(self.grid_pts, self.width, self.height)
-                # f = False
+                f = False
 
             # recompute relay
             if ttime > relaytime:
@@ -309,7 +301,7 @@ class Simulator:
 
 def main():
     # parameters
-    coordinates = [[0,0],[0,100],[200,100],[200,0]]
+    coordinates = [[0,0],[0,100],[100,100],[100,0]]
     overlap = 2.5
     imgWidth = 10
     imgHeight = 10
@@ -319,7 +311,7 @@ def main():
     velocity = 30
     range_ = 30
     num_drones = 5
-    gridDimension = (200,100)
+    gridDimension = (100,100)
     colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (102, 0, 102), (255, 0, 255), (215, 220, 55), (205, 100, 155), (155, 200, 255), (233, 12, 33), (123, 45, 111)]
 
     # print grid array
