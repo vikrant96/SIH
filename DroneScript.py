@@ -113,7 +113,7 @@ class Simulator:
             #print(ttime)
             if f:
                 self.render_object.render_grid(self.grid_pts, self.width, self.height)
-                f = False
+                # f = False
 
             # recompute relay
             if ttime > relaytime:

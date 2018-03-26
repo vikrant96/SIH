@@ -53,7 +53,7 @@ def getGridPoints(coordinates, overlap, imgWidth, imgHeight):
     return grid_points
 
 
-def get_grid_distribution_with_range(gridPoints, timeOfFlight, timeToClick, velocity, serverLoc, serverRange, colors):
+def get_grid_distribution_with_range(num_drones, gridPoints, timeOfFlight, timeToClick, velocity, serverLoc, serverRange, colors):
     # get new range and tof based on buffer %
     # considering buffer of 10%
     tof = 0.9 * timeOfFlight
@@ -66,6 +66,16 @@ def get_grid_distribution_with_range(gridPoints, timeOfFlight, timeToClick, velo
 
     while allocated != len(gridPoints):
         drones+=1
+
+        if drones == num_drones:
+            distribution[drones] = []
+            for grid_pt in gridPoints:
+                if not grid_pt.allocated:
+                    distribution[drones].append(grid_pt)
+            drone = Drone(drones, colors[drones - 1], velocity, serverLoc)
+            droneList.append(drone)
+            break
+
         startPos = gridPoints[0].coordinate
 
         # set start location for first drone
@@ -128,6 +138,12 @@ def get_grid_distribution_with_range(gridPoints, timeOfFlight, timeToClick, velo
         # print time left for drone one
         #print("Drone {}: \nStart Pos: {} \ndistance: {} \nTime taken: {}".format(drones,startPos,distance,tof - timeToMap))
 
+    if drones < num_drones:
+        while drones == num_drones:
+            drones += 1
+            drone = Drone(drones, colors[drones - 1], velocity, serverLoc)
+            droneList.append(drone)
+            distribution[drones] = []
     #print(gridPoints)
     #
     # print(distribution)
@@ -138,7 +154,7 @@ def shuffle_distribution(drone_list, grid_dimension, w, h):
 
     shuffle_renderer = GenGrid(grid_dimension[0], grid_dimension[1])
     n_drones = len(drone_list)
-    for j in range(0, 5):
+    for j in range(0, 10):
         for i, drone in enumerate(drone_list):
             time_prev = drone_list[i-1].estimated_time if i-1 >= 0 else float('-inf')
             time_next = drone_list[i+1].estimated_time if i+1 < n_drones else float('-inf')
@@ -191,7 +207,7 @@ def add_transparency(self, distribution):
 
 def main():
     # parameters
-    coordinates = [[0,0],[0,100],[100,100],[100,0]]
+    coordinates = [[0,0],[0,100],[200,100],[200,0]]
     overlap = 2.5
     imgWidth = 10
     imgHeight = 10
@@ -200,15 +216,16 @@ def main():
     timeToClick = 2
     velocity = 30
     range_ = 30
-    gridDimension = (100,100)
-    colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (102, 0, 102), (255, 0, 255), (215, 220, 55), (205, 100, 155), (155, 200, 255)]
+    num_drones = 5
+    gridDimension = (200,100)
+    colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (102, 0, 102), (255, 0, 255), (215, 220, 55), (205, 100, 155), (155, 200, 255), (233, 12, 33), (123, 45, 111)]
 
     # print grid array
     gridPoints = getGridPoints(coordinates, overlap, imgWidth, imgHeight)
     #print(gridPoints)
 
     # get distribution
-    drone_list, distribution, gridPoints = get_grid_distribution_with_range(gridPoints, timeOfFlight, timeToClick, velocity, serverLoc, range_, colors)
+    drone_list, distribution, gridPoints = get_grid_distribution_with_range(num_drones, gridPoints, timeOfFlight, timeToClick, velocity, serverLoc, range_, colors)
     #print(distribution)
 
     # set locations for each drone
